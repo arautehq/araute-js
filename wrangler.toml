@@ -1,0 +1,17 @@
+account_id = "a2ab486ded002f2a14b7406c4896fa4c"
+
+name = "araute-js"
+compatibility_date = "2026-07-08"
+
+[assets]
+directory = "./dist"
+not_found_handling = "none"
+run_worker_first = false
+
+[[routes]]
+pattern = "js.araute.com"
+zone_name = "araute.com"
+custom_domain = true
+
+[observability]
+enabled = true
