@@ -3,9 +3,17 @@
   "version": "0.1.0",
   "description": "SDK de navegador do Araute: monta o campo de cartão do checkout transparente (SmartForm da Lyra) com o client_secret do PaymentIntent.",
   "type": "module",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
+  "homepage": "https://docs.araute.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arautehq/araute-js.git"
+  },
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
