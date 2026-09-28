@@ -16,12 +16,14 @@ export const NextActionType = {
   Smartform: 'smartform',
   ThreeDSecure: 'three_d_secure',
   RedirectToUrl: 'redirect_to_url',
+  BoletoDisplayDetails: 'boleto_display_details',
 } as const
 export type NextActionType = (typeof NextActionType)[keyof typeof NextActionType]
 
 export const PaymentMethodType = {
   Pix: 'pix',
   Card: 'card',
+  Boleto: 'boleto',
 } as const
 export type PaymentMethodType =
   (typeof PaymentMethodType)[keyof typeof PaymentMethodType]

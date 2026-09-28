@@ -32,11 +32,29 @@ export type RedirectToUrlNextAction = {
   url: string
 }
 
+export type BoletoDisplayDetailsPix = {
+  br_code: string
+  qr_code_image_url?: string
+}
+
+export type BoletoDisplayDetailsNextAction = {
+  type: typeof NextActionType.BoletoDisplayDetails
+  digitable_line: string
+  barcode: string
+  barcode_image_url?: string
+  pdf_url: string | null
+  due_date: string
+  expires_at?: string
+  hosted_url?: string
+  pix: BoletoDisplayDetailsPix
+}
+
 export type PaymentIntentNextAction =
   | PixDisplayQrCodeNextAction
   | SmartformNextAction
   | ThreeDSecureNextAction
   | RedirectToUrlNextAction
+  | BoletoDisplayDetailsNextAction
   | null
 
 export type PaymentIntentPublicView = {
