@@ -47,7 +47,7 @@ try {
       showThanks(result.paid)
     },
     onError: (error) => {
-      // Só falhas depois da montagem, como a renovação do formulário.
+      // Só falhas da renovação automática, depois da montagem.
       showError(error.code)
     },
   })
@@ -97,11 +97,15 @@ Lançados como exceção por `Araute(...)` ou por `await mountCard(...)`, antes 
 | `krypton_load_failed` | O script do formulário de cartão não carregou. |
 | `krypton_unavailable` | O formulário de cartão não ficou disponível na página. |
 
-Entregue em `onError` depois de montado:
+Entregue em `onError` depois de montado, quando a renovação automática do formulário falha:
 
 | `code` | Quando acontece |
 | --- | --- |
-| `refresh_failed` | A renovação automática do formulário falhou. Crie um `PaymentIntent` novo e monte de novo. |
+| `api_error` | A API da Araute recusou a renovação. `status` 409 quando o `PaymentIntent` esgotou os 20 formulários ou não está mais aguardando o cartão. |
+| `network_error` | A chamada de renovação não completou. |
+| `refresh_failed` | Qualquer outra falha na renovação. |
+
+Em qualquer um deles, crie um `PaymentIntent` novo e monte de novo.
 
 ## Ambiente de teste
 
