@@ -1,0 +1,1 @@
+script-src 'self' https://static.payzen.eu; style-src 'self' 'unsafe-inline' https://static.payzen.eu; frame-src https:; connect-src 'self' https://api.araute.com https://static.payzen.eu; img-src 'self' data: https://static.payzen.eu; font-src 'self' data: https://static.payzen.eu
