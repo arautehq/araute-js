@@ -3,6 +3,7 @@ import { ArauteErrorCode } from '../errors/araute-error.constants'
 import { ArauteError } from '../errors/araute-error'
 import type { ApiClient } from '../http/api-client'
 import { KryptonLoader } from './krypton-loader'
+import { TestCardFrame } from './test-card-frame'
 import {
   KRYPTON_EXPIRED_TOKEN_ERROR_CODE,
   SMARTFORM_REFRESH_FALLBACK_MS,
@@ -32,6 +33,9 @@ export class MountCardService {
   private refreshInFlight = false
   private unmounted = false
   private submitted = false
+  private inChallenge = false
+  private lastExpiresAt: string | undefined
+  private testFrame: TestCardFrame | undefined
 
   constructor(apiClient: ApiClient) {
     this.apiClient = apiClient
@@ -48,6 +52,27 @@ export class MountCardService {
         code: ArauteErrorCode.UnexpectedNextAction,
         message: 'A Araute não devolveu um formulário de cartão para este pagamento.',
       })
+    }
+
+    if (nextAction.form_url) {
+      this.testFrame = new TestCardFrame(
+        container,
+        nextAction.form_url,
+        (result) => {
+          const leftChallenge = this.inChallenge
+          this.inChallenge = false
+          // A refused card leaves the form open for another try, so only a paid result stops the refresh.
+          if (result.paid) this.markSubmitted()
+          else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
+          options.onResult?.(result)
+        },
+        () => {
+          this.inChallenge = true
+          this.cancelRefreshTimer()
+        },
+      )
+      this.scheduleRefresh(nextAction.expires_at, options)
+      return { unmount: () => this.unmount() }
     }
 
     MountCardService.renderFields(container, nextAction.form_token)
@@ -109,6 +134,8 @@ export class MountCardService {
 
   private scheduleRefresh(expiresAt: string | undefined, options: MountCardOptions): void {
     if (this.unmounted || this.submitted) return
+    this.lastExpiresAt = expiresAt
+    clearTimeout(this.refreshTimeoutId)
     const dueMs = expiresAt
       ? new Date(expiresAt).getTime() - Date.now() - SMARTFORM_REFRESH_MARGIN_MS
       : SMARTFORM_REFRESH_FALLBACK_MS
@@ -119,7 +146,7 @@ export class MountCardService {
   }
 
   private fireRefresh(options: MountCardOptions): void {
-    if (this.unmounted || this.submitted) return
+    if (this.unmounted || this.submitted || this.inChallenge) return
     if (document.visibilityState !== 'visible') {
       this.clearVisibilityHandler()
       this.visibilityHandler = () => {
@@ -160,19 +187,27 @@ export class MountCardService {
 
   private markSubmitted(): void {
     this.submitted = true
+    this.cancelRefreshTimer()
+  }
+
+  private cancelRefreshTimer(): void {
     clearTimeout(this.refreshTimeoutId)
     this.refreshTimeoutId = undefined
     this.clearVisibilityHandler()
   }
 
   private async runRefresh(options: MountCardOptions): Promise<void> {
-    if (this.refreshInFlight || this.unmounted || this.submitted) return
+    if (this.refreshInFlight || this.unmounted || this.submitted || this.inChallenge) return
     this.refreshInFlight = true
     try {
       const view = await this.apiClient.refreshCardToken()
       const nextAction = view.next_action
       if (!nextAction || nextAction.type !== NextActionType.Smartform) return
-      await window.KR?.setFormToken?.(nextAction.form_token)
+      if (this.testFrame && nextAction.form_url) {
+        this.testFrame.setUrl(nextAction.form_url)
+      } else {
+        await window.KR?.setFormToken?.(nextAction.form_token)
+      }
       if (this.unmounted) return
       this.scheduleRefresh(nextAction.expires_at, options)
     } catch (error) {
@@ -202,6 +237,8 @@ export class MountCardService {
     this.unmounted = true
     clearTimeout(this.refreshTimeoutId)
     this.clearVisibilityHandler()
+    this.testFrame?.destroy()
+    this.testFrame = undefined
     this.kryptonLoader.removeForms()
   }
 }
