@@ -3,6 +3,7 @@ import { ArauteErrorCode } from '../errors/araute-error.constants'
 import { ArauteError } from '../errors/araute-error'
 import type { ApiClient } from '../http/api-client'
 import { KryptonLoader } from './krypton-loader'
+import { TestCardFrame } from './test-card-frame'
 import {
   KRYPTON_EXPIRED_TOKEN_ERROR_CODE,
   SMARTFORM_REFRESH_FALLBACK_MS,
@@ -32,6 +33,7 @@ export class MountCardService {
   private refreshInFlight = false
   private unmounted = false
   private submitted = false
+  private testFrame: TestCardFrame | undefined
 
   constructor(apiClient: ApiClient) {
     this.apiClient = apiClient
@@ -48,6 +50,15 @@ export class MountCardService {
         code: ArauteErrorCode.UnexpectedNextAction,
         message: 'A Araute não devolveu um formulário de cartão para este pagamento.',
       })
+    }
+
+    if (nextAction.form_url) {
+      this.testFrame = new TestCardFrame(container, nextAction.form_url, (result) => {
+        this.markSubmitted()
+        options.onResult?.(result)
+      })
+      this.scheduleRefresh(nextAction.expires_at, options)
+      return { unmount: () => this.unmount() }
     }
 
     MountCardService.renderFields(container, nextAction.form_token)
@@ -172,7 +183,11 @@ export class MountCardService {
       const view = await this.apiClient.refreshCardToken()
       const nextAction = view.next_action
       if (!nextAction || nextAction.type !== NextActionType.Smartform) return
-      await window.KR?.setFormToken?.(nextAction.form_token)
+      if (this.testFrame && nextAction.form_url) {
+        this.testFrame.setUrl(nextAction.form_url)
+      } else {
+        await window.KR?.setFormToken?.(nextAction.form_token)
+      }
       if (this.unmounted) return
       this.scheduleRefresh(nextAction.expires_at, options)
     } catch (error) {
@@ -202,6 +217,8 @@ export class MountCardService {
     this.unmounted = true
     clearTimeout(this.refreshTimeoutId)
     this.clearVisibilityHandler()
+    this.testFrame?.destroy()
+    this.testFrame = undefined
     this.kryptonLoader.removeForms()
   }
 }

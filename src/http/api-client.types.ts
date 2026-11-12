@@ -18,6 +18,7 @@ export type SmartformNextAction = {
   public_key: string
   form_token: string
   expires_at?: string
+  form_url?: string
 }
 
 export type ThreeDSecureNextAction = {
