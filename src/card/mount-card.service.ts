@@ -33,6 +33,8 @@ export class MountCardService {
   private refreshInFlight = false
   private unmounted = false
   private submitted = false
+  private inChallenge = false
+  private lastExpiresAt: string | undefined
   private testFrame: TestCardFrame | undefined
 
   constructor(apiClient: ApiClient) {
@@ -53,10 +55,22 @@ export class MountCardService {
     }
 
     if (nextAction.form_url) {
-      this.testFrame = new TestCardFrame(container, nextAction.form_url, (result) => {
-        this.markSubmitted()
-        options.onResult?.(result)
-      })
+      this.testFrame = new TestCardFrame(
+        container,
+        nextAction.form_url,
+        (result) => {
+          const leftChallenge = this.inChallenge
+          this.inChallenge = false
+          // A refused card leaves the form open for another try, so only a paid result stops the refresh.
+          if (result.paid) this.markSubmitted()
+          else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
+          options.onResult?.(result)
+        },
+        () => {
+          this.inChallenge = true
+          this.cancelRefreshTimer()
+        },
+      )
       this.scheduleRefresh(nextAction.expires_at, options)
       return { unmount: () => this.unmount() }
     }
@@ -120,6 +134,8 @@ export class MountCardService {
 
   private scheduleRefresh(expiresAt: string | undefined, options: MountCardOptions): void {
     if (this.unmounted || this.submitted) return
+    this.lastExpiresAt = expiresAt
+    clearTimeout(this.refreshTimeoutId)
     const dueMs = expiresAt
       ? new Date(expiresAt).getTime() - Date.now() - SMARTFORM_REFRESH_MARGIN_MS
       : SMARTFORM_REFRESH_FALLBACK_MS
@@ -130,7 +146,7 @@ export class MountCardService {
   }
 
   private fireRefresh(options: MountCardOptions): void {
-    if (this.unmounted || this.submitted) return
+    if (this.unmounted || this.submitted || this.inChallenge) return
     if (document.visibilityState !== 'visible') {
       this.clearVisibilityHandler()
       this.visibilityHandler = () => {
@@ -171,13 +187,17 @@ export class MountCardService {
 
   private markSubmitted(): void {
     this.submitted = true
+    this.cancelRefreshTimer()
+  }
+
+  private cancelRefreshTimer(): void {
     clearTimeout(this.refreshTimeoutId)
     this.refreshTimeoutId = undefined
     this.clearVisibilityHandler()
   }
 
   private async runRefresh(options: MountCardOptions): Promise<void> {
-    if (this.refreshInFlight || this.unmounted || this.submitted) return
+    if (this.refreshInFlight || this.unmounted || this.submitted || this.inChallenge) return
     this.refreshInFlight = true
     try {
       const view = await this.apiClient.refreshCardToken()

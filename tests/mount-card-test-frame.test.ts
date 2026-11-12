@@ -135,6 +135,66 @@ describe('mountCard with a test card form url', () => {
     expect(container.querySelector('iframe')?.getAttribute('src')).toBe(secondUrl)
   })
 
+  it('keeps refreshing after a refused card, and stops only once a result is paid', async () => {
+    vi.useFakeTimers()
+    const secondUrl = 'https://api.araute.dev/test/card_form/sbxform_two'
+    const thirdUrl = 'https://api.araute.dev/test/card_form/sbxform_three'
+    const expiresAt = new Date(Date.now() + 130_000).toISOString()
+    const calls = stubApi([
+      { type: 'smartform', public_key: 'k', form_token: 't1', form_url: FORM_URL, expires_at: expiresAt },
+      { type: 'smartform', public_key: 'k', form_token: 't2', form_url: secondUrl },
+      { type: 'smartform', public_key: 'k', form_token: 't3', form_url: thirdUrl },
+    ])
+    await Araute(CLIENT_SECRET).mountCard(container)
+    const frame = container.querySelector('iframe')
+    if (!frame) throw new Error('no iframe')
+
+    sendFromFrame(frame, FORM_ORIGIN, { type: 'araute.card_form.result', paid: false })
+    await vi.advanceTimersByTimeAsync(20_000)
+
+    expect(frame.getAttribute('src')).toBe(secondUrl)
+
+    sendFromFrame(frame, 'https://api.araute.dev', {
+      type: 'araute.card_form.result',
+      paid: true,
+      orderStatus: 'PAID',
+    })
+    await vi.advanceTimersByTimeAsync(600_000)
+
+    expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(1)
+  })
+
+  it('does not swap the frame while the payer is inside a 3DS challenge', async () => {
+    vi.useFakeTimers()
+    const secondUrl = 'https://api.araute.dev/test/card_form/sbxform_two'
+    const calls = stubApi([
+      {
+        type: 'smartform',
+        public_key: 'k',
+        form_token: 't1',
+        form_url: FORM_URL,
+        expires_at: new Date(Date.now() + 130_000).toISOString(),
+      },
+      { type: 'smartform', public_key: 'k', form_token: 't2', form_url: secondUrl },
+    ])
+    const onResult = vi.fn()
+    await Araute(CLIENT_SECRET).mountCard(container, { onResult })
+    const frame = container.querySelector('iframe')
+    if (!frame) throw new Error('no iframe')
+
+    sendFromFrame(frame, FORM_ORIGIN, { type: 'araute.card_form.challenge' })
+    await vi.advanceTimersByTimeAsync(600_000)
+
+    expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(0)
+    expect(frame.getAttribute('src')).toBe(FORM_URL)
+    expect(onResult).not.toHaveBeenCalled()
+
+    sendFromFrame(frame, FORM_ORIGIN, { type: 'araute.card_form.result', paid: false })
+    await vi.advanceTimersByTimeAsync(20_000)
+
+    expect(frame.getAttribute('src')).toBe(secondUrl)
+  })
+
   it('unmount removes the iframe and the message listener', async () => {
     stubApi([{ type: 'smartform', public_key: 'araute_test', form_token: 't', form_url: FORM_URL }])
     const onResult = vi.fn()
