@@ -111,6 +111,8 @@ Em qualquer um deles, crie um `PaymentIntent` novo e monte de novo.
 
 Não há host separado: o modo de teste ou produção vem do `client_secret`, que herda o modo da chave que criou o `PaymentIntent`. Crie o `PaymentIntent` com `sk_test_` para testar. `apiBase` só existe para apontar o SDK a um ambiente próprio.
 
+Com uma chave `sk_test_`, o `PaymentIntent` traz `form_url` no `next_action` e o `mountCard` monta, no lugar do formulário do adquirente, um iframe com o formulário de cartão de teste da Araute. Use só os cartões de teste listados nele (por exemplo `4970 1000 0000 0048` aprova e `4970 1000 0000 0113` recusa). A API do `onResult` não muda. O `paid` do `onResult` serve só para a tela: quem libera o pedido é o webhook ou a consulta ao `PaymentIntent`, nunca o navegador.
+
 ## Build
 
 ```bash
