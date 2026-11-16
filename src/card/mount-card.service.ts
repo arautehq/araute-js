@@ -77,7 +77,7 @@ export class MountCardService {
             // A refused card leaves the form open for another try, so only a paid result stops the refresh.
             // When the page ended on its result instead, the next try needs a fresh form right away.
             if (result.paid) this.markSubmitted()
-            else if (formEnded) void this.runRefresh(options)
+            else if (formEnded) void this.restartTestForm(options)
             else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
             options.onResult?.(result)
           },
@@ -257,6 +257,29 @@ export class MountCardService {
     clearTimeout(this.refreshTimeoutId)
     this.refreshTimeoutId = undefined
     this.clearVisibilityHandler()
+  }
+
+  // A finished attempt leaves the intent waiting for a payment method, which only a new confirm reopens.
+  private async restartTestForm(options: MountCardOptions): Promise<void> {
+    if (this.unmounted || this.submitted) return
+    try {
+      const view = await this.apiClient.confirm({ type: PaymentMethodType.Card })
+      const nextAction = view.next_action
+      if (this.unmounted || !this.testFrame) return
+      if (nextAction?.type !== NextActionType.Smartform || !nextAction.form_url) return
+      this.testFrame.setUrl(nextAction.form_url)
+      this.scheduleRefresh(nextAction.expires_at, options)
+    } catch (error) {
+      options.onError?.(
+        error instanceof ArauteError
+          ? error
+          : new ArauteError({
+              code: ArauteErrorCode.RefreshFailed,
+              message: 'Falha ao renovar o formulário de pagamento.',
+              cause: error,
+            }),
+      )
+    }
   }
 
   private async runRefresh(options: MountCardOptions): Promise<void> {
