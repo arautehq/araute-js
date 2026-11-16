@@ -2,6 +2,7 @@ import { NextActionType, PaymentMethodType } from '../domain/enums'
 import { ArauteErrorCode } from '../errors/araute-error.constants'
 import { ArauteError } from '../errors/araute-error'
 import type { ApiClient } from '../http/api-client'
+import { buildKryptonAppearanceCss } from './krypton-appearance'
 import { KryptonLoader } from './krypton-loader'
 import { TestCardFrame } from './test-card-frame'
 import {
@@ -11,6 +12,8 @@ import {
   SMARTFORM_REFRESH_MIN_DELAY_MS,
 } from './krypton.constants'
 import {
+  CARD_APPEARANCE_VARIABLE_NAMES,
+  CARD_SCOPE_ATTRIBUTE,
   KRYPTON_FIELD_CLASS_NAMES,
   PAID_ORDER_STATUS,
   KR_CLEAR_ON_ERROR_ATTRIBUTE,
@@ -25,6 +28,8 @@ import type {
   MountedCard,
 } from './mount-card.types'
 
+let nextScopeId = 0
+
 export class MountCardService {
   private readonly apiClient: ApiClient
   private readonly kryptonLoader: KryptonLoader
@@ -36,6 +41,8 @@ export class MountCardService {
   private inChallenge = false
   private lastExpiresAt: string | undefined
   private testFrame: TestCardFrame | undefined
+  private appearanceStyle: HTMLStyleElement | undefined
+  private settlePendingSubmit: (() => void) | undefined
 
   constructor(apiClient: ApiClient) {
     this.apiClient = apiClient
@@ -58,24 +65,33 @@ export class MountCardService {
       this.testFrame = new TestCardFrame(
         container,
         nextAction.form_url,
-        (result) => {
-          const leftChallenge = this.inChallenge
-          this.inChallenge = false
-          // A refused card leaves the form open for another try, so only a paid result stops the refresh.
-          if (result.paid) this.markSubmitted()
-          else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
-          options.onResult?.(result)
+        {
+          appearance: options.appearance,
+          hidePaymentButton: options.hidePaymentButton === true,
+          placeholders: options.placeholders,
         },
-        () => {
-          this.inChallenge = true
-          this.cancelRefreshTimer()
+        {
+          onResult: (result) => {
+            const leftChallenge = this.inChallenge
+            this.inChallenge = false
+            // A refused card leaves the form open for another try, so only a paid result stops the refresh.
+            if (result.paid) this.markSubmitted()
+            else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
+            options.onResult?.(result)
+          },
+          onChallenge: () => {
+            this.inChallenge = true
+            this.cancelRefreshTimer()
+          },
+          onReady: () => options.onReady?.(),
         },
       )
       this.scheduleRefresh(nextAction.expires_at, options)
-      return { unmount: () => this.unmount() }
+      return this.mountedCard()
     }
 
     MountCardService.renderFields(container, nextAction.form_token)
+    this.applyKryptonAppearance(container, options)
 
     const { reused } = await this.kryptonLoader.load(nextAction.public_key, options)
     if (reused) await window.KR?.renderElements?.()
@@ -83,8 +99,51 @@ export class MountCardService {
     this.registerSubmitHook(options)
     this.scheduleRefresh(nextAction.expires_at, options)
     this.registerExpiredTokenFallback(options)
+    window.KR?.onFormReady?.(() => options.onReady?.())
 
-    return { unmount: () => this.unmount() }
+    return this.mountedCard()
+  }
+
+  private mountedCard(): MountedCard {
+    return { unmount: () => this.unmount(), submit: () => this.submit() }
+  }
+
+  private submit(): Promise<void> {
+    if (this.testFrame) return this.testFrame.submit()
+    this.settlePendingSubmit?.()
+    return new Promise((resolve) => {
+      this.settlePendingSubmit = resolve
+      const submitting = window.KR?.submit?.()
+      // KR.submit() resolves once the attempt starts; the attempt ends in onSubmit or onError.
+      if (submitting === undefined) this.finishSubmit()
+      else submitting.catch(() => this.finishSubmit())
+    })
+  }
+
+  private finishSubmit(): void {
+    this.settlePendingSubmit?.()
+    this.settlePendingSubmit = undefined
+  }
+
+  private applyKryptonAppearance(container: HTMLElement, options: MountCardOptions): void {
+    const variables = options.appearance?.variables
+    const hidePaymentButton = options.hidePaymentButton === true
+    if (!variables && !hidePaymentButton) return
+    nextScopeId += 1
+    const scopeId = String(nextScopeId)
+    container.setAttribute(CARD_SCOPE_ATTRIBUTE, scopeId)
+    for (const name of CARD_APPEARANCE_VARIABLE_NAMES) {
+      const value = variables?.[name]
+      if (value) {
+        container.style.setProperty(`--araute-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, value)
+      }
+    }
+    this.appearanceStyle = document.createElement('style')
+    this.appearanceStyle.textContent = buildKryptonAppearanceCss(scopeId, {
+      styled: variables !== undefined,
+      hidePaymentButton,
+    })
+    document.head.appendChild(this.appearanceStyle)
   }
 
   private static resolveTarget(target: MountCardTarget): HTMLElement {
@@ -172,6 +231,7 @@ export class MountCardService {
     window.KR?.onSubmit?.((event) => {
       this.markSubmitted()
       options.onResult?.(MountCardService.toResult(event))
+      this.finishSubmit()
       return false
     })
   }
@@ -227,6 +287,7 @@ export class MountCardService {
 
   private registerExpiredTokenFallback(options: MountCardOptions): void {
     window.KR?.onError?.((error) => {
+      this.finishSubmit()
       if (error?.errorCode !== KRYPTON_EXPIRED_TOKEN_ERROR_CODE) return
       this.submitted = false
       void this.runRefresh(options)
@@ -239,6 +300,9 @@ export class MountCardService {
     this.clearVisibilityHandler()
     this.testFrame?.destroy()
     this.testFrame = undefined
+    this.finishSubmit()
+    this.appearanceStyle?.remove()
+    this.appearanceStyle = undefined
     this.kryptonLoader.removeForms()
   }
 }

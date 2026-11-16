@@ -8,6 +8,7 @@ declare global {
       setFormToken?: (formToken: string) => Promise<unknown> | undefined
       renderElements?: (selector?: string) => Promise<unknown> | undefined
       onError?: (cb: (error: { errorCode?: string }) => void) => void
+      submit?: () => Promise<unknown>
       onSubmit?: (cb: (event: unknown) => boolean | Promise<boolean>) => void
     }
   }

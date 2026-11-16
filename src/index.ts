@@ -8,6 +8,8 @@ export function Araute(clientSecret: string, options?: ArauteOptions): ArauteIns
 export type { ArauteInstance, ArauteOptions } from './client/araute-client.types'
 
 export type {
+  CardAppearance,
+  CardAppearanceVariableName,
   CardPaymentResult,
   MountCardCallbacks,
   MountCardOptions,

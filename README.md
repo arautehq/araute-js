@@ -80,6 +80,47 @@ A confirmação definitiva é o webhook `payment_intent.succeeded` no seu backen
 | `placeholders` | Placeholders dos campos (`pan`, `expiryDate`, `securityCode`) |
 | `theme` | `'classic'` carrega o tema pronto do formulário seguro; `'none'` deixa o CSS por sua conta |
 | `scriptSrc` | Sobrescreve a URL do script do formulário (só para ambiente próprio) |
+| `hidePaymentButton` | Esconde o botão de pagar do formulário; quem dispara o pagamento é o seu botão, via `submit()` |
+| `appearance` | `{ variables }` para alinhar os campos ao seu design system (veja abaixo) |
+| `onReady` | Chamado quando o formulário já pode receber o cartão e o `submit()` |
+
+## Botão de pagar próprio e aparência
+
+Para pagar com um botão do seu design system, esconda o botão do formulário e chame `submit()`:
+
+```js
+const card = await araute.mountCard('#card', {
+  hidePaymentButton: true,
+  appearance: {
+    variables: {
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '15px',
+      colorText: '#000000',
+      colorTextPlaceholder: '#b2b2b2',
+      colorBackground: '#ffffff',
+      colorBorder: '#e8e8e8',
+      colorBorderFocus: '#0e7aff',
+      colorDanger: '#ef4444',
+      borderRadius: '16px',
+      inputHeight: '54px',
+    },
+  },
+  onReady: () => enableConfirmButton(),
+  onResult: (result) => showThanks(result.paid),
+})
+
+confirmButton.onclick = async () => {
+  showSpinner()
+  await card.submit() // termina quando a tentativa acaba
+  hideSpinner()
+}
+```
+
+`submit()` resolve quando a tentativa termina: com o resultado entregue em `onResult`, com um erro de validação do formulário (campo inválido, cartão inválido) ou quando o comprador entra num desafio 3DS. Nunca fica pendente depois de uma validação que barrou o envio. Quem decide o que mostrar é o `onResult`.
+
+Variáveis aceitas em `appearance.variables` (todas opcionais): `fontFamily`, `fontSize`, `colorText`, `colorTextPlaceholder`, `colorBackground`, `colorBorder`, `colorBorderFocus`, `colorDanger`, `borderRadius`, `inputHeight`, `colorPrimary`, `colorPrimaryText` (as duas últimas valem para o botão do formulário, quando ele está visível). Sem nenhuma dessas opções o formulário se comporta como antes.
+
+Nas duas formas de formulário o mesmo conjunto de variáveis vale. A fonte só é aplicada se existir dentro do formulário (campos seguros e iframe de teste não herdam fontes carregadas pela sua página).
 
 ## Erros
 

@@ -15,3 +15,20 @@ export const KR_CLEAR_ON_ERROR_VALUE = 'false'
 export const PAYMENT_BUTTON_ARIA_LABEL = 'Confirmar pagamento'
 
 export const PAID_ORDER_STATUS = 'PAID'
+
+export const CARD_APPEARANCE_VARIABLE_NAMES = [
+  'fontFamily',
+  'fontSize',
+  'colorText',
+  'colorTextPlaceholder',
+  'colorBackground',
+  'colorBorder',
+  'colorBorderFocus',
+  'colorDanger',
+  'borderRadius',
+  'inputHeight',
+  'colorPrimary',
+  'colorPrimaryText',
+] as const
+
+export const CARD_SCOPE_ATTRIBUTE = 'data-araute-card'
