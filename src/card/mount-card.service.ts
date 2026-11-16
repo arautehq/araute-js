@@ -94,12 +94,13 @@ export class MountCardService {
     this.applyKryptonAppearance(container, options)
 
     const { reused } = await this.kryptonLoader.load(nextAction.public_key, options)
+    // Registered before renderElements: on a reused Krypton the re-render can finish before a later registration.
+    window.KR?.onFormReady?.(() => options.onReady?.())
     if (reused) await window.KR?.renderElements?.()
 
     this.registerSubmitHook(options)
     this.scheduleRefresh(nextAction.expires_at, options)
     this.registerExpiredTokenFallback(options)
-    window.KR?.onFormReady?.(() => options.onReady?.())
 
     return this.mountedCard()
   }
