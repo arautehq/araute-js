@@ -38,6 +38,18 @@ export class ApiClient {
     )
   }
 
+  // A new attempt after a finished one: the confirm key of the first attempt would replay its answer.
+  async confirmNewAttempt(
+    paymentMethodData: ConfirmPaymentMethodData,
+  ): Promise<PaymentIntentPublicView> {
+    return this.request(
+      'POST',
+      `${PAYMENT_INTENTS_PATH}/${this.#intentId}/confirm`,
+      { payment_method_data: paymentMethodData },
+      { idempotencyScope: null },
+    )
+  }
+
   async refreshCardToken(): Promise<PaymentIntentPublicView> {
     return this.request(
       'POST',
