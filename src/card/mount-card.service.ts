@@ -71,11 +71,13 @@ export class MountCardService {
           placeholders: options.placeholders,
         },
         {
-          onResult: (result) => {
+          onResult: (result, formEnded) => {
             const leftChallenge = this.inChallenge
             this.inChallenge = false
             // A refused card leaves the form open for another try, so only a paid result stops the refresh.
+            // When the page ended on its result instead, the next try needs a fresh form right away.
             if (result.paid) this.markSubmitted()
+            else if (formEnded) void this.runRefresh(options)
             else if (leftChallenge) this.scheduleRefresh(this.lastExpiresAt, options)
             options.onResult?.(result)
           },

@@ -72,7 +72,7 @@ export class TestCardFrame {
         paid: Reflect.get(data, 'paid') === true,
         orderStatus: typeof orderStatus === 'string' ? orderStatus : undefined,
         answer: Reflect.get(data, 'answer'),
-      })
+      }, Reflect.get(data, 'final') === true)
     }
     window.addEventListener('message', this.listener)
   }

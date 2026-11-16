@@ -7,7 +7,7 @@ export type TestCardFrameConfig = {
 }
 
 export type TestCardFrameHandlers = {
-  onResult: (result: CardPaymentResult) => void
+  onResult: (result: CardPaymentResult, formEnded: boolean) => void
   onChallenge: () => void
   onReady: () => void
 }

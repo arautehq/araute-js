@@ -164,6 +164,24 @@ describe('mountCard with a test card form url', () => {
     expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(1)
   })
 
+  it('fetches a fresh form at once when the frame ended on an unpaid result', async () => {
+    const secondUrl = 'https://api.araute.dev/test/card_form/sbxform_two'
+    const calls = stubApi([
+      { type: 'smartform', public_key: 'k', form_token: 't1', form_url: FORM_URL },
+      { type: 'smartform', public_key: 'k', form_token: 't2', form_url: secondUrl },
+    ])
+    const results: boolean[] = []
+    await Araute(CLIENT_SECRET).mountCard(container, { onResult: (result) => results.push(result.paid) })
+    const frame = container.querySelector('iframe')
+    if (!frame) throw new Error('no iframe')
+
+    sendFromFrame(frame, FORM_ORIGIN, { type: 'araute.card_form.result', paid: false, final: true })
+    await vi.waitFor(() => expect(frame.getAttribute('src')).toBe(secondUrl))
+
+    expect(results).toEqual([false])
+    expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(1)
+  })
+
   it('does not swap the frame while the payer is inside a 3DS challenge', async () => {
     vi.useFakeTimers()
     const secondUrl = 'https://api.araute.dev/test/card_form/sbxform_two'
