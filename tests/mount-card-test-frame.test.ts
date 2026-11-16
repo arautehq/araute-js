@@ -164,12 +164,20 @@ describe('mountCard with a test card form url', () => {
     expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(1)
   })
 
-  it('confirms again for a fresh form when the frame ended on an unpaid result', async () => {
+  it('confirms again under a new idempotency key when the frame ended on an unpaid result', async () => {
     const secondUrl = 'https://api.araute.dev/test/card_form/sbxform_two'
-    const calls = stubApi([
+    const replies = [
       { type: 'smartform', public_key: 'k', form_token: 't1', form_url: FORM_URL },
       { type: 'smartform', public_key: 'k', form_token: 't2', form_url: secondUrl },
-    ])
+    ]
+    const confirmKeys: (string | undefined)[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string, init: { headers: Record<string, string> }) => {
+        if (input.includes('/confirm')) confirmKeys.push(init.headers['Idempotency-Key'])
+        return new Response(JSON.stringify(view(replies.shift() ?? {})), { status: 200 })
+      }),
+    )
     const results: boolean[] = []
     await Araute(CLIENT_SECRET).mountCard(container, { onResult: (result) => results.push(result.paid) })
     const frame = container.querySelector('iframe')
@@ -179,8 +187,8 @@ describe('mountCard with a test card form url', () => {
     await vi.waitFor(() => expect(frame.getAttribute('src')).toBe(secondUrl))
 
     expect(results).toEqual([false])
-    expect(calls.filter((call) => call.includes('/confirm'))).toHaveLength(2)
-    expect(calls.filter((call) => call.includes('/refresh_card_token'))).toHaveLength(0)
+    expect(confirmKeys).toHaveLength(2)
+    expect(confirmKeys[0]).not.toBe(confirmKeys[1])
   })
 
   it('does not swap the frame while the payer is inside a 3DS challenge', async () => {

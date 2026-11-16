@@ -263,7 +263,7 @@ export class MountCardService {
   private async restartTestForm(options: MountCardOptions): Promise<void> {
     if (this.unmounted || this.submitted) return
     try {
-      const view = await this.apiClient.confirm({ type: PaymentMethodType.Card })
+      const view = await this.apiClient.confirmNewAttempt({ type: PaymentMethodType.Card })
       const nextAction = view.next_action
       if (this.unmounted || !this.testFrame) return
       if (nextAction?.type !== NextActionType.Smartform || !nextAction.form_url) return
