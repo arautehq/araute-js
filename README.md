@@ -118,7 +118,7 @@ confirmButton.onclick = async () => {
 
 `submit()` resolve quando a tentativa termina: com o resultado entregue em `onResult`, com um erro de validação do formulário (campo inválido, cartão inválido) ou quando o comprador entra num desafio 3DS. Nunca fica pendente depois de uma validação que barrou o envio. Quem decide o que mostrar é o `onResult`.
 
-Variáveis aceitas em `appearance.variables` (todas opcionais): `fontFamily`, `fontSize`, `colorText`, `colorTextPlaceholder`, `colorBackground`, `colorBorder`, `colorBorderFocus`, `colorDanger`, `borderRadius`, `inputHeight`, `colorPrimary`, `colorPrimaryText` (as duas últimas valem para o botão do formulário, quando ele está visível). Sem nenhuma dessas opções o formulário se comporta como antes.
+Variáveis aceitas em `appearance.variables` (todas opcionais): `fontFamily`, `fontSize`, `colorText`, `colorTextPlaceholder`, `colorBackground`, `colorBorder`, `colorBorderFocus`, `colorDanger`, `borderRadius`, `inputHeight`, `colorPrimary`, `colorPrimaryText` (as duas últimas valem para o botão do formulário, quando ele está visível). Sem nenhuma dessas opções o formulário se comporta como antes. No formulário real (Lyra), `colorTextPlaceholder` não é aplicado: os campos de cartão ficam em iframes da Lyra com placeholder cinza fixo, e o titular segue o mesmo cinza para não destoar.
 
 Nas duas formas de formulário o mesmo conjunto de variáveis vale. A fonte só é aplicada se existir dentro do formulário (campos seguros e iframe de teste não herdam fontes carregadas pela sua página).
 
