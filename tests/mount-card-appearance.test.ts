@@ -208,6 +208,9 @@ describe('mountCard appearance with the Krypton form', () => {
     const css = document.head.querySelector('style')?.textContent ?? ''
     expect(css).toContain(`[data-araute-card="${scope}"] .kr-payment-button{display:none !important}`)
     expect(css).toContain('input.kr-input-field')
+    expect(css).toContain(
+      `[data-araute-card="${scope}"] .krFieldRepresentation .kr-inner-wrapper{height:calc(var(--araute-input-height,54px) - 2px) !important`,
+    )
     expect(container.style.getPropertyValue('--araute-color-border-focus')).toBe('#0e7aff')
     expect(container.style.getPropertyValue('--araute-input-height')).toBe('54px')
   })
